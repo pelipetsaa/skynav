@@ -1,0 +1,4 @@
+# OpenCelliD lookup of the serving cell seen on the test phone.
+# samples=1, so the point is one observation, not a surveyed mast. source=crowdsourced stays unverified.
+# mcc,mnc,tech,cell_id,lat,lon,azimuth_deg,sector_width_deg,range_m,accuracy_m,source,updated_ms
+260,2,LTE,32823092,50.1012,19.9568,,,1489,,crowdsourced,1762980000000

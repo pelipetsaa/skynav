@@ -1,0 +1,38 @@
+{
+  "code": "Ok",
+  "routes": [
+    {
+      "distance": 1271.5,
+      "duration": 140,
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [19.95, 50.10],
+          [19.96, 50.10],
+          [19.96, 50.105]
+        ]
+      },
+      "legs": [
+        {
+          "steps": [
+            {
+              "distance": 715.0,
+              "name": "Dietla",
+              "maneuver": {"type": "depart", "modifier": "straight", "location": [19.95, 50.10]}
+            },
+            {
+              "distance": 556.0,
+              "name": "Starowislna",
+              "maneuver": {"type": "turn", "modifier": "left", "location": [19.96, 50.10]}
+            },
+            {
+              "distance": 0,
+              "name": "",
+              "maneuver": {"type": "arrive", "modifier": "straight", "location": [19.96, 50.105]}
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

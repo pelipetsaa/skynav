@@ -1,0 +1,7 @@
+# Mock access points in metres east,north around a tower at 0,0.
+# Truth is 300 m east. The first three sit on that spot. The last one is outside a 1000 m cell.
+# name,east_m,north_m,rssi_dbm,accuracy_m
+near-a,280,20,-48,40
+near-b,320,-15,-55,40
+near-c,305,25,-62,40
+far-outlier,2500,0,-40,40
