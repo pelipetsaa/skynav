@@ -31,6 +31,7 @@ android {
         buildConfigField("String", "OPENCELLID_TOKEN", "\"${localProp("opencellid.token")}\"")
         buildConfigField("String", "WIGLE_API_NAME", "\"${localProp("wigle.name")}\"")
         buildConfigField("String", "WIGLE_API_TOKEN", "\"${localProp("wigle.token")}\"")
+        buildConfigField("String", "MAPILLARY_TOKEN", "\"${localProp("mapillary.token")}\"")
     }
 
     buildTypes {
@@ -70,6 +71,10 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.compose.foundation:foundation")
     implementation("org.maplibre.gl:android-sdk:11.11.0")
+    implementation("org.tensorflow:tensorflow-lite:2.14.0")
+    implementation("androidx.camera:camera-camera2:1.4.1")
+    implementation("androidx.camera:camera-lifecycle:1.4.1")
+    implementation("androidx.camera:camera-core:1.4.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
     implementation("androidx.room:room-runtime:2.6.1")
@@ -77,4 +82,5 @@ dependencies {
     ksp("androidx.room:room-compiler:2.6.1")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }

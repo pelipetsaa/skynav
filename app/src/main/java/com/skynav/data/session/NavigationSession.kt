@@ -6,6 +6,7 @@ import android.os.SystemClock
 import android.telephony.TelephonyManager
 import android.hardware.SensorManager
 import com.skynav.BuildConfig
+import com.skynav.domain.inertial.GuideSource
 import com.skynav.data.basestation.StationIndex
 import com.skynav.data.logging.DriveRecorder
 import com.skynav.data.logging.GpsTruthLogger
@@ -13,6 +14,9 @@ import com.skynav.data.lookup.WigleClient
 import com.skynav.data.sensors.ImuDataCollector
 import com.skynav.data.telephony.CellularDataCollector
 import com.skynav.data.wifi.WifiDataCollector
+import com.skynav.data.lookup.MapillaryClient
+import com.skynav.data.photo.FrameEmbedder
+import com.skynav.data.photo.StreetPhotoCheck
 import com.skynav.data.routing.OverpassClient
 import com.skynav.domain.geo.Geo
 import com.skynav.domain.geo.LatLon
@@ -64,6 +68,7 @@ class NavigationSession(
     private val overpass = OverpassClient()
     private var roadBackoffUntilMs = 0L
     private val wigle = WigleClient(BuildConfig.WIGLE_API_NAME, BuildConfig.WIGLE_API_TOKEN)
+    private val mapillary = MapillaryClient(BuildConfig.MAPILLARY_TOKEN)
     /** Null means the BSSID was looked up and WiGLE had no coordinate. Not retried this session. */
     private val wifiHits = HashMap<String, WifiObservation?>()
 
@@ -100,6 +105,14 @@ class NavigationSession(
                     if (pause) guide.togglePaused()
                 }
                 guide.setGpsEnabled(NavigationHub.gpsEnabled.value)
+                if (guide.reckoning.hasPosition && guide.reckoning.hasHeading) {
+                    NavigationHub.notePose(
+                        guide.reckoning.position(),
+                        guide.reckoning.headingDeg,
+                        guide.source == GuideSource.GPS,
+                    )
+                }
+                NavigationHub.takeStreetPhoto()?.let { guide.offerStreetPhoto(it, sample.timestampMs) }
                 NavigationHub.takeGps()?.let { offer ->
                     val learned = guide.offerGps(
                         LatLon(offer.latitude, offer.longitude),
@@ -126,6 +139,33 @@ class NavigationSession(
                     lastPublishMs = sample.timestampMs
                     val snap = eng?.current()
                     if (snap != null || guided != null) NavigationHub.publish(snap, radio = false, guide = guided)
+                }
+            }
+        }
+
+        if (mapillary.configured) {
+            jobs += scope.launch(Dispatchers.IO) {
+                val checker = runCatching {
+                    StreetPhotoCheck(mapillary, FrameEmbedder.load(context))
+                }.getOrNull() ?: return@launch
+                try {
+                    while (isActive) {
+                        val frame = NavigationHub.takeCameraFrame()
+                        if (frame == null) {
+                            delay(500)
+                            continue
+                        }
+                        val pose = NavigationHub.carPose
+                        val matched = if (pose == null || pose.gps) {
+                            null
+                        } else {
+                            runCatching { checker.check(frame, pose.position, pose.headingDeg) }.getOrNull()
+                        }
+                        frame.recycle()
+                        if (matched != null) NavigationHub.offerStreetPhoto(matched)
+                    }
+                } finally {
+                    checker.close()
                 }
             }
         }

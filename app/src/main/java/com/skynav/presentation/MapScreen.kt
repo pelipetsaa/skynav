@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.skynav.BuildConfig
 import com.skynav.data.session.NavigationHub
 import com.skynav.domain.geo.LatLon
 import com.skynav.domain.inertial.label
@@ -54,13 +55,22 @@ fun MapScreen(
     val fix by NavigationHubFixes()
     var query by remember { mutableStateOf("") }
     var follow by remember { mutableStateOf(true) }
+    var cameraGranted by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED,
+        )
+    }
 
-    val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { }
+    val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        cameraGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+    }
 
     LaunchedEffect(Unit) {
         val needed = buildList {
             add(Manifest.permission.ACCESS_FINE_LOCATION)
             add(Manifest.permission.READ_PHONE_STATE)
+            if (BuildConfig.MAPILLARY_TOKEN.isNotBlank()) add(Manifest.permission.CAMERA)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
         }.filter {
             ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
@@ -86,6 +96,8 @@ fun MapScreen(
     val accuracyM = guide?.accuracyM ?: snapshot?.position?.accuracyM
     val headingRad = guide?.headingDeg?.let { (PI / 2.0) - Math.toRadians(it) } ?: snapshot?.headingRad
     val headingSigma = if (guide?.headingDeg != null) 0.2 else snapshot?.headingSigmaRad
+
+    StreetCamera(enabled = BuildConfig.MAPILLARY_TOKEN.isNotBlank() && cameraGranted)
 
     Box(modifier = Modifier.fillMaxSize()) {
         OsmMap(
@@ -149,7 +161,9 @@ fun MapScreen(
                 if (!gpsOn) append("GPS выключен. ")
                 if (accuracyM != null) append("Точность ${accuracyM.toInt()} м. ")
                 if (guide?.speedLost == true) append("Нет скорости с телефона. ")
+                if (guide?.streetPhoto == true) append("Снимок улицы. ")
                 append("© OpenStreetMap")
+                if (BuildConfig.MAPILLARY_TOKEN.isNotBlank()) append(" © Mapillary, CC BY-SA")
             }
             Surface(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(12.dp)) {

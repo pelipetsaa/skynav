@@ -29,6 +29,7 @@ data class GuideFix(
     val speedMps: Double = 0.0,
     val paused: Boolean = false,
     val markSequence: Int = 0,
+    val streetPhoto: Boolean = false,
 )
 
 /**
@@ -84,6 +85,7 @@ class InertialGuide {
         private set
     var markSequence: Int = 0
         private set
+    private var streetPhotoUntilMs = 0L
     var gpsEnabled: Boolean = true
         private set
 
@@ -251,6 +253,35 @@ class InertialGuide {
         return true
     }
 
+    /**
+     * Moves the mark onto the road nearest a matched street photo.
+     * A photo far from any loaded road is ignored, and so is one while GPS is the source.
+     */
+    fun offerStreetPhoto(position: LatLon, nowMs: Long): Boolean {
+        if (source == GuideSource.GPS) return false
+        val roads = graph ?: return false
+        val frame = roadFrame ?: return false
+        val hit = roads.candidates(frame.toEnu(position), MANUAL_RADIUS_M).minByOrNull { it.distanceM } ?: return false
+        val point = frame.toLatLon(hit.point)
+        val keptHeading = if (reckoning.hasHeading) reckoning.headingDeg else null
+        reckoning.setPosition(point)
+        val roadHeadingDeg = compassDeg(hit.bearingRad)
+        val heading = if (keptHeading != null) nearerHeading(keptHeading, roadHeadingDeg) else roadHeadingDeg
+        reckoning.setHeading(heading)
+        reckoning.trustRoad()
+        anchor = point
+        needsMark = false
+        heldAtCrossing = false
+        roadHeading = heading
+        lastOnRoad = point
+        streetPhotoUntilMs = nowMs + STREET_PHOTO_HOLD_MS
+        markSequence++
+        bends.reset()
+        path.reset()
+        gpsReturn.reset()
+        return true
+    }
+
     /** Route bearing, radians counter-clockwise from east. Used only while the phone has no heading. */
     fun onRouteBearing(bearingRad: Double) {
         if (reckoning.hasHeading) return
@@ -294,6 +325,7 @@ class InertialGuide {
             speedMps = accelAxis.currentSpeedMps(),
             paused = paused,
             markSequence = markSequence,
+            streetPhoto = timestampMs <= streetPhotoUntilMs,
         )
     }
 
@@ -495,6 +527,7 @@ class InertialGuide {
     private companion object {
         const val ROAD_RELOAD_M = 400.0
         const val MANUAL_RADIUS_M = 80.0
+        const val STREET_PHOTO_HOLD_MS = 8_000L
         const val ACCEL_MEMORY_MS = 30_000L
         const val MOVING_GYRO = 0.2
         const val SPEED_STALE_SEC = 2.0
