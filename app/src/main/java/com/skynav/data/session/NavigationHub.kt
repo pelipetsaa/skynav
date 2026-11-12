@@ -1,5 +1,6 @@
 package com.skynav.data.session
 
+import android.graphics.Bitmap
 import com.skynav.domain.geo.LatLon
 import com.skynav.domain.inertial.GuideFix
 import com.skynav.domain.positioning.NavigationSnapshot
@@ -13,6 +14,8 @@ data class PublishedFix(
     val sequence: Long,
     val guide: GuideFix? = null,
 )
+
+data class CarPose(val position: LatLon, val headingDeg: Double, val gps: Boolean)
 
 data class GpsOffer(
     val latitude: Double,
@@ -55,6 +58,16 @@ object NavigationHub {
     private val _gpsEnabled = MutableStateFlow(true)
     val gpsEnabled: StateFlow<Boolean> = _gpsEnabled
 
+    @Volatile
+    var carPose: CarPose? = null
+        private set
+
+    @Volatile
+    private var cameraFrame: Bitmap? = null
+
+    @Volatile
+    private var streetPhoto: LatLon? = null
+
     fun publish(snapshot: NavigationSnapshot?, radio: Boolean, guide: GuideFix? = null) {
         val next = (_fixes.value?.sequence ?: 0L) + 1L
         _fixes.value = PublishedFix(snapshot, radio, next, guide)
@@ -84,6 +97,32 @@ object NavigationHub {
 
     fun setGpsEnabled(enabled: Boolean) {
         _gpsEnabled.value = enabled
+    }
+
+    fun notePose(position: LatLon, headingDeg: Double, gps: Boolean) {
+        carPose = CarPose(position, headingDeg, gps)
+    }
+
+    fun offerCameraFrame(bitmap: Bitmap) {
+        val dropped = cameraFrame
+        cameraFrame = bitmap
+        if (dropped != null && dropped !== bitmap) dropped.recycle()
+    }
+
+    fun takeCameraFrame(): Bitmap? {
+        val frame = cameraFrame
+        cameraFrame = null
+        return frame
+    }
+
+    fun offerStreetPhoto(position: LatLon) {
+        streetPhoto = position
+    }
+
+    fun takeStreetPhoto(): LatLon? {
+        val photo = streetPhoto
+        streetPhoto = null
+        return photo
     }
 
     fun takeDriveCommands(): Pair<Boolean, Boolean> {
